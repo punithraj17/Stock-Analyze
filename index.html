@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Indian Stock Analysis Platform</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: url("bull-vs-bear-symbols-of-stock-market-growing-and-falling-arrows-free-vector.jpg") no-repeat center center fixed;
+      background-size: cover;
+      color: white;
+      text-align: center;
+      position: relative;
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.55);
+      z-index: 0;
+    }
+
+    .overlay {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+    }
+
+    p {
+      font-size: 1.2rem;
+      margin-bottom: 20px;
+    }
+
+    .search-box input {
+      padding: 10px;
+      width: 300px;
+      border-radius: 5px;
+      border: none;
+      font-size: 1rem;
+    }
+
+    .search-box button {
+      padding: 10px 20px;
+      margin-left: 10px;
+      background-color: #28a745;
+      border: none;
+      border-radius: 5px;
+      color: white;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+    .search-box button:hover {
+      background-color: #218838;
+    }
+
+    #stock-data-container {
+      margin-top: 30px;
+      padding: 20px;
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.6);
+      width: 80%;
+      max-width: 700px;
+      text-align: left;
+      display: none;
+    }
+
+    .chart-container {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="overlay">
+    <h1>Indian Stock Analysis Platform</h1>
+    <p>"Find the multibagger stocks here"</p>
+
+    <div class="search-box">
+      <input type="text" id="stock-search" placeholder="Enter NSE/BSE Stock Symbol (e.g., TCS, RELIANCE)">
+      <button id="search-button">Search</button>
+    </div>
+
+    <div id="message-box"></div>
+
+    <div id="stock-data-container">
+      <h2 id="stock-name"></h2>
+      <p><strong>Symbol:</strong> <span id="stock-symbol"></span></p>
+      <p><strong>Price:</strong> ₹<span id="stock-price"></span></p>
+      <p><strong>52 Week High:</strong> ₹<span id="52-week-high"></span></p>
+      <p><strong>52 Week Low:</strong> ₹<span id="52-week-low"></span></p>
+      <p><strong>1 Year Returns:</strong> <span id="1-year-returns"></span>%</p>
+      <p><strong>Market Cap:</strong> ₹<span id="market-cap"></span></p>
+      <p><strong>P/E Ratio:</strong> <span id="pe-ratio"></span></p>
+      <p><strong>P/B Ratio:</strong> <span id="pb-ratio"></span></p>
+      <p><strong>Dividend Yield:</strong> <span id="dividend-yield"></span>%</p>
+
+      <div class="chart-container">
+        <canvas id="shareholding-chart" width="400" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (async () => {
+      const searchInput = document.getElementById('stock-search');
+      const searchButton = document.getElementById('search-button');
+      const messageBox = document.getElementById('message-box');
+      const stockDataContainer = document.getElementById('stock-data-container');
+      const stockNameElem = document.getElementById('stock-name');
+      const stockSymbolElem = document.getElementById('stock-symbol');
+      const stockPriceElem = document.getElementById('stock-price');
+      const fiftyTwoWeekHighElem = document.getElementById('52-week-high');
+      const fiftyTwoWeekLowElem = document.getElementById('52-week-low');
+      const oneYearReturnsElem = document.getElementById('1-year-returns');
+      const marketCapElem = document.getElementById('market-cap');
+      const peRatioElem = document.getElementById('pe-ratio');
+      const pbRatioElem = document.getElementById('pb-ratio');
+      const dividendYieldElem = document.getElementById('dividend-yield');
+      const shareholdingChartCtx = document.getElementById('shareholding-chart').getContext('2d');
+      let myChart = null;
+
+      const MOCK_API_DATA = {
+        'TCS': {
+          name: 'Tata Consultancy Services',
+          symbol: 'TCS',
+          exchange: 'NSE',
+          price: 3850.50,
+          '52_week_high': 4254.40,
+          '52_week_low': 3100.25,
+          '1_year_returns': 22.8,
+          market_cap: 14050000000000,
+          pe_ratio: 18.5,
+          pb_ratio: 3.5,
+          dividend_yield: 1.1,
+          shareholding: {
+            promoters: 72, fii: 12.5, mutual_funds: 5.0, other_dii: 3.5, non_institutions: 6.0, insurance: 1.0
+          }
+        },
+        'RELIANCE': {
+          name: 'Reliance Industries',
+          symbol: 'RELIANCE',
+          exchange: 'NSE',
+          price: 2850.75,
+          '52_week_high': 3029.00,
+          '52_week_low': 2364.55,
+          '1_year_returns': 15.6,
+          market_cap: 19300000000000,
+          pe_ratio: 28.7,
+          pb_ratio: 2.1,
+          dividend_yield: 0.35,
+          shareholding: {
+            promoters: 50.49, fii: 22.0, mutual_funds: 8.5, other_dii: 4.5, non_institutions: 11.5, insurance: 3.01
+          }
+        },
+        'WIPRO': {
+          name: 'Wipro Limited',
+          symbol: 'WIPRO',
+          exchange: 'NSE',
+          price: 490.20,
+          '52_week_high': 525.00,
+          '52_week_low': 378.10,
+          '1_year_returns': 29.5,
+          market_cap: 2500000000000,
+          pe_ratio: 16.3,
+          pb_ratio: 2.5,
+          dividend_yield: 0.9,
+          shareholding: {
+            promoters: 70.0, fii: 15.5, mutual_funds: 7.0, other_dii: 2.5, non_institutions: 5.0, insurance: 0.0
+          }
+        },
+        'INFY': {
+          name: 'Infosys Limited',
+          symbol: 'INFY',
+          exchange: 'NSE',
+          price: 1685.40,
+          '52_week_high': 1920.00,
+          '52_week_low': 1350.10,
+          '1_year_returns': 18.2,
+          market_cap: 7000000000000,
+          pe_ratio: 20.4,
+          pb_ratio: 4.1,
+          dividend_yield: 2.2,
+          shareholding: {
+            promoters: 13.1, fii: 35.0, mutual_funds: 17.0, other_dii: 10.0, non_institutions: 24.9, insurance: 0.0
+          }
+        }
+      };
+
+      function formatMarketCap(value) {
+        if (value >= 1e12) return (value / 1e12).toFixed(2) + ' Lakh Cr';
+        if (value >= 1e7) return (value / 1e7).toFixed(2) + ' Cr';
+        return value.toLocaleString();
+      }
+
+      function renderStockData(data) {
+        stockNameElem.textContent = data.name;
+        stockSymbolElem.textContent = data.symbol;
+        stockPriceElem.textContent = data.price.toFixed(2);
+        fiftyTwoWeekHighElem.textContent = data['52_week_high'].toFixed(2);
+        fiftyTwoWeekLowElem.textContent = data['52_week_low'].toFixed(2);
+        oneYearReturnsElem.textContent = data['1_year_returns'].toFixed(2);
+        marketCapElem.textContent = formatMarketCap(data.market_cap);
+        peRatioElem.textContent = data.pe_ratio;
+        pbRatioElem.textContent = data.pb_ratio;
+        dividendYieldElem.textContent = data.dividend_yield;
+
+        if (myChart) myChart.destroy();
+        myChart = new Chart(shareholdingChartCtx, {
+          type: 'pie',
+          data: {
+            labels: Object.keys(data.shareholding),
+            datasets: [{
+              data: Object.values(data.shareholding),
+              backgroundColor: ['#28a745','#007bff','#ffc107','#17a2b8','#6c757d','#ff5733']
+            }]
+          }
+        });
+        stockDataContainer.style.display = 'block';
+      }
+
+      searchButton.addEventListener('click', () => {
+        const symbol = searchInput.value.trim().toUpperCase();
+        if (!symbol) {
+          messageBox.textContent = "Please enter a stock symbol.";
+          return;
+        }
+        if (MOCK_API_DATA[symbol]) {
+          messageBox.textContent = "";
+          renderStockData(MOCK_API_DATA[symbol]);
+        } else {
+          stockDataContainer.style.display = 'none';
+          messageBox.textContent = "Stock data not found.";
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
